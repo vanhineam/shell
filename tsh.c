@@ -186,8 +186,17 @@ void eval(char *cmdline)
 
     if(!builtin_cmd(argv))
     {
+      sigset_t new;
+
+      sigemptyset(&new);
+      sigaddset(&new, SIGCHLD);
+      sigaddset(&new, SIGINT);
+      sigaddset(&new, SIGTSTP);
+      sigprocmask(SIG_BLOCK, &new, NULL);
+
       if((pid = fork()) == 0)
       {
+        sigprocmask(SIG_UNBLOCK, &new, NULL);
         if(execve(argv[0], argv, environ) < 0)
         {
           printf("%s: Command not found.\n", argv[0]);
@@ -331,7 +340,7 @@ void do_bgfg(char **argv)
 
     if(strncmp(argv[0], "bg", 2) == 0)
     {
-      
+
     }
     else
     {
