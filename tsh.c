@@ -179,7 +179,7 @@ void eval(char *cmdline)
 
     strcpy(buf, cmdline);
     bg = parseline(buf, argv);
-    if(argv[0] == NULL)
+    if(argv[0] == NULL || argv[0][0] == 0)
     {
       return;
     }
@@ -196,6 +196,7 @@ void eval(char *cmdline)
       if((pid = fork()) == 0)
       {
         sigprocmask(SIG_UNBLOCK, &mask, NULL);
+        setpgid(0, 0);
         if(execve(argv[0], argv, environ) < 0)
         {
           printf("%s: Command not found.\n", argv[0]);
@@ -207,11 +208,7 @@ void eval(char *cmdline)
 
       if(!bg)
       {
-        int status;
-        if(waitpid(pid, &status, 0) < 0)
-        {
-          unix_error("waitfg: waitpid error");
-        }
+        waitfg(pid);
       }
       else
       {
@@ -355,7 +352,7 @@ void do_bgfg(char **argv)
 void waitfg(pid_t pid)
 {
   int status;
-  while (waitpid(pid, &status, WNOHAND) != pid)
+  while (waitpid(pid, &status, WNOHANG) != pid)
   {
     sleep(1);
     pid_t fg_pid = fgpid(jobs);
@@ -379,7 +376,26 @@ void waitfg(pid_t pid)
  */
  void sigchld_handler(int sig)
  {
-    return;
+    int statusPtr;
+    pid_t pid = waitpid(-1, &statusPtr, WEXITED | WSTOPPED);
+    struct job_t* job = getjobpid(jobs, pid);
+    int sigNum = WTERMSIG(&statusPtr);
+    if(WIFEXITED(&statusPtr))
+    {
+      deletejob(jobs, pid);
+      return;
+    }
+    else if (WIFSIGNALED(&statusPtr))
+    {
+      printf("Job [%d] (%d) terminated by signal %d\n", job->jid, pid, sigNum);
+      deletejob(jobs, pid);
+    }
+    else if (WSTOPSIG(&statusPtr))
+    {
+      printf("Job [%d] (%d) stopped by signal %d\n", job->jid, pid, sigNum);
+      job->state = ST;
+    }
+
 }
 
 /*
