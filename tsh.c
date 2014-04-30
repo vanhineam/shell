@@ -186,23 +186,24 @@ void eval(char *cmdline)
 
     if(!builtin_cmd(argv))
     {
-      sigset_t new;
-
-      sigemptyset(&new);
-      sigaddset(&new, SIGCHLD);
-      sigaddset(&new, SIGINT);
-      sigaddset(&new, SIGTSTP);
-      sigprocmask(SIG_BLOCK, &new, NULL);
+      sigset_t mask;
+      sigemptyset(&mask);
+      sigaddset(&mask, SIGCHLD);
+      sigaddset(&mask, SIGINT);
+      sigaddset(&mask, SIGTSTP);
+      sigprocmask(SIG_BLOCK, &mask, NULL);
 
       if((pid = fork()) == 0)
       {
-        sigprocmask(SIG_UNBLOCK, &new, NULL);
+        sigprocmask(SIG_UNBLOCK, &mask, NULL);
         if(execve(argv[0], argv, environ) < 0)
         {
           printf("%s: Command not found.\n", argv[0]);
-          exit(0);
         }
       }
+
+      addjob(jobs, pid, bg ? BG : FG, cmdline);
+      sigprocmask(SIG_UNBLOCK, &mask, NULL);
 
       if(!bg)
       {
@@ -304,7 +305,7 @@ int builtin_cmd(char **argv)
         listjobs(jobs);
         return 1;
     }
-    else if((strncmp(argv[0], "bg", 2) == 0)) || (strncmp(argv[0], "fg", 2) == 0))
+    else if ((strncmp(argv[0], "bg", 2) == 0) || (strncmp(argv[0], "fg", 2) == 0))
     {
         do_bgfg(argv);
         return 1;
@@ -318,7 +319,7 @@ int builtin_cmd(char **argv)
 void do_bgfg(char **argv)
 {
     int id;
-    job_t* job;
+    struct job_t* job;
     if(argv[1][0] == '%')
     {
       id = atoi(argv[1] + 1);
@@ -346,13 +347,18 @@ void do_bgfg(char **argv)
     {
 
     }
+}
 
 /*
 * waitfg - Block until process pid is no longer the foreground process
 */
 void waitfg(pid_t pid)
 {
-    return;
+  int status;
+    while (waitpid(pid, &status, WNOHAND) != pid)
+    {
+      
+    }
 }
 
 /*****************
