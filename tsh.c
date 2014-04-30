@@ -186,15 +186,30 @@ void eval(char *cmdline)
 
     if(!builtin_cmd(argv))
     {
-      if((pid == fork()) == 0)
+      if((pid = fork()) == 0)
       {
-        
+        if(execve(argv[0], argv, environ) < 0)
+        {
+          printf("%s: Command not found.\n", argv[0]);
+          exit(0);
+        }
+      }
+
+      if(!bg)
+      {
+        int status;
+        if(waitpid(pid, &status, 0) < 0)
+        {
+          unix_error("waitfg: waitpid error");
+        }
+      }
+      else
+      {
+        printf("%d %s", pid, cmdline);
       }
 
     }
-    else
-    {
-    }
+    return;
 }
 
 /*
@@ -280,14 +295,9 @@ int builtin_cmd(char **argv)
         listjobs(jobs);
         return 1;
     }
-    else if(strncmp(argv[0], "fg", 2) == 0)
+    else if((strncmp(argv[0], "bg", 2) == 0)) || (strncmp(argv[0], "fg", 2) == 0))
     {
-        printf("Foreground\n");
-        return 1;
-    }
-    else if(strncmp(argv[0], "bg", 2) == 0)
-    {
-        printf("Background\n");
+        do_bgfg(argv);
         return 1;
     }
     return 0;
@@ -298,8 +308,35 @@ int builtin_cmd(char **argv)
 */
 void do_bgfg(char **argv)
 {
-    return;
-}
+    int id;
+    job_t* job;
+    if(argv[1][0] == '%')
+    {
+      id = atoi(argv[1] + 1);
+      job = getjobjid(jobs, id);
+    }
+    else
+    {
+      id = atoi(argv[1]);
+      job = getjobpid(jobs, id);
+    }
+
+    if(!job)
+    {
+      printf("(%d): No such process\n", id);
+      return;
+    }
+
+    kill(job->pid, SIGCONT);
+
+    if(strncmp(argv[0], "bg", 2) == 0)
+    {
+      
+    }
+    else
+    {
+
+    }
 
 /*
 * waitfg - Block until process pid is no longer the foreground process
