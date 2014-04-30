@@ -355,10 +355,15 @@ void do_bgfg(char **argv)
 void waitfg(pid_t pid)
 {
   int status;
-    while (waitpid(pid, &status, WNOHAND) != pid)
+  while (waitpid(pid, &status, WNOHAND) != pid)
+  {
+    sleep(1);
+    pid_t fg_pid = fgpid(jobs);
+    if(fg_pid == 0)
     {
-      
+      return;
     }
+  }
 }
 
 /*****************
