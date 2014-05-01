@@ -186,21 +186,23 @@ void eval(char *cmdline)
 
     if(!builtin_cmd(argv))
     {
-      sigset_t mask;
-      sigemptyset(&mask);
-      sigaddset(&mask, SIGCHLD);
-      sigaddset(&mask, SIGINT);
-      sigaddset(&mask, SIGTSTP);
-      sigprocmask(SIG_BLOCK, &mask, NULL);
+      sigset_t old;
+      sigset_t new;
+      sigemptyset(&new);
+      sigaddset(&new, SIGCHLD);
+      sigaddset(&new, SIGINT);
+      sigaddset(&new, SIGTSTP);
+      sigprocmask(SIG_BLOCK, &new, &old);
 
       if((pid = fork()) == 0)
       {
-        sigprocmask(SIG_UNBLOCK, &mask, NULL);
+        sigprocmask(SIG_BLOCK, &old, NULL);
         setpgid(0, 0);
         if(execve(argv[0], argv, environ) < 0)
         {
           printf("%s: Command not found.\n", argv[0]);
-          return;
+
+          exit(127);
         }
       }
 
@@ -350,7 +352,7 @@ void do_bgfg(char **argv)
 void waitfg(pid_t pid)
 {
   int status;
-  while (waitpid(pid, &status, WNOHANG|WUNTRACED) != pid)
+  while (waitpid(pid, &status, WNOHANG) != pid)
   {
     sleep(1);
     if(fgpid(jobs) == 0)
