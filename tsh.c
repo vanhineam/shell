@@ -200,11 +200,11 @@ void eval(char *cmdline)
         if(execve(argv[0], argv, environ) < 0)
         {
           printf("%s: Command not found.\n", argv[0]);
+          return;
         }
       }
 
       addjob(jobs, pid, bg ? BG : FG, cmdline);
-      sigprocmask(SIG_UNBLOCK, &mask, NULL);
 
       if(!bg)
       {
@@ -215,7 +215,6 @@ void eval(char *cmdline)
         printf("%d %s", pid, cmdline);
       }
     }
-    return;
 }
 
 /*
