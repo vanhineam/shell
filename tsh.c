@@ -214,7 +214,6 @@ void eval(char *cmdline)
       {
         printf("%d %s", pid, cmdline);
       }
-
     }
     return;
 }
@@ -352,11 +351,10 @@ void do_bgfg(char **argv)
 void waitfg(pid_t pid)
 {
   int status;
-  while (waitpid(pid, &status, WNOHANG) != pid)
+  while (waitpid(pid, &status, WNOHANG|WUNTRACED) != pid)
   {
     sleep(1);
-    pid_t fg_pid = fgpid(jobs);
-    if(fg_pid == 0)
+    if(fgpid(jobs) == 0)
     {
       return;
     }
@@ -379,7 +377,6 @@ void waitfg(pid_t pid)
     int statusPtr;
     pid_t pid = waitpid(-1, &statusPtr, WEXITED | WSTOPPED);
     struct job_t* job = getjobpid(jobs, pid);
-    int sigNum = WTERMSIG(&statusPtr);
     if(WIFEXITED(&statusPtr))
     {
       deletejob(jobs, pid);
@@ -387,15 +384,16 @@ void waitfg(pid_t pid)
     }
     else if (WIFSIGNALED(&statusPtr))
     {
-      printf("Job [%d] (%d) terminated by signal %d\n", job->jid, pid, sigNum);
+      printf("Job [%d] (%d) terminated by signal %d\n", job->jid, pid, sig);
       deletejob(jobs, pid);
+      return;
     }
     else if (WSTOPSIG(&statusPtr))
     {
-      printf("Job [%d] (%d) stopped by signal %d\n", job->jid, pid, sigNum);
+      printf("Job [%d] (%d) stopped by signal %d\n", job->jid, pid, sig);
       job->state = ST;
+      return;
     }
-
 }
 
 /*
@@ -405,7 +403,14 @@ void waitfg(pid_t pid)
  */
  void sigint_handler(int sig)
  {
-    return;
+    pid_t pid = fgpid(jobs);
+    struct job_t* job = getjobpid(jobs, pid);
+    if(pid != 0)
+    {
+      kill(pid, SIGINT);
+      printf("Job [%d] (%d) terminated by signal %d", job->jid, pid, sig);
+      deletejob(jobs,pid);
+    }
 }
 
 /*
