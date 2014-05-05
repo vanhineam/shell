@@ -375,6 +375,7 @@ void do_bgfg(char **argv)
   if (strcmp(argv[0], "bg") == 0)
   {
     job->state = BG;
+    printf("[%d] (%d) %s", job->jid, job->pid, job->cmdline);
     kill(-(job->pid), SIGCONT);
   }
   else
